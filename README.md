@@ -25,4 +25,6 @@ Digital Call: $0.553841, Delta: 0.0187135
 Digital Put: $0.49743, Delta: -0.0187135
 ```
 
-_Note: This version is incomplete and will be updated._
+You can try the option evaluation with the CRR model by running `main.cpp`.
+
+_Note: This version is incomplete and should be updated for asian and american options._
