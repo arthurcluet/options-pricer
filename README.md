@@ -1,30 +1,97 @@
 # C++ Pricer
 
-Object-oriented C++ Pricer for European options and digital options.
-The pricer uses the Black-Scholes model or the Cox-Ross-Rubinstein model.
+Object-oriented C++ Pricer for:
+- European options
+- Digital options
+- Asian options
+- American options
 
-## Example
 
-### Objects representing the options
+The pricer implements the Black Scholes model as well as the Cox-Ross-Rubinstein model.
+
+## Examples
+
+### European & digital options
+
+- `CallOption`
+- `PutOption`
+- `DigitalCallOption`
+- `DigitalPutOption`
+
 ```cpp
-double interestRate = 0.01; // Interest rate
-double vol = 0.1; // Volatility
-double assetPrice = 100; // Asset price (t=0)
-CallOption call(5, 101);
-PutOption put(5, 101);
-DigitalCallOption dcall(5, 101); // (expiry, strike)
-DigitalPutOption dput(5, 101); // (expiry, strike)
+double S0(100.), K(101.), T(5), r(0.01), sigma(0.1);
+CallOption opt1(T, K);
+DigitalPutOption opt2(T, K);
+
+// Black Scholes model
+BlackScholesPricer pricer1(&opt1, S0, r, sigma);
+std::cout << "BlackScholesPricer price=" << pricer1() << ", delta=" << pricer1.delta() << std::endl;
+
+BlackScholesPricer pricer2(&opt2, S0, r, sigma);
+std::cout << "BlackScholesPricer price=" << pricer2() << ", delta=" << pricer2.delta() << std::endl;
+std::cout << std::endl;
+
+// CRR Model
+
+int N(150);
+double U = exp(sigma * sqrt(T / N)) - 1.0;
+double D = exp(-sigma * sqrt(T / N)) - 1.0;
+double R = exp(r * T / N) - 1.0;
+
+CRRPricer crr_pricer1(&opt1, N, S0, U, D, R);
+std::cout << "Calling CRR pricer with depth=" << N << std::endl;
+std::cout << std::endl;
+std::cout << "CRR pricer computed price=" << crr_pricer1() << std::endl;
+std::cout << "CRR pricer explicit formula price=" << crr_pricer1(true) << std::endl;
+std::cout << endl;
 ```
 
-### Black-Scholes model output
+### Asian options
+
 ```cpp
-*** Black Scholes ***
-Call: $10.8293, Delta: 0.61444
-Put: $6.90342, Delta: -0.38556
-Digital Call: $0.553841, Delta: 0.0187135
-Digital Put: $0.49743, Delta: -0.0187135
+double S0(95.), K(100.), T(0.5), r(0.02), sigma(0.2);
+std::vector < Option * > opt_ptrs;
+std::vector < double > fixing_dates;
+for (int i = 1; i <= 5; i++) {
+  fixing_dates.push_back(0.1 * i);
+}
+opt_ptrs.push_back(new AsianCallOption(fixing_dates, K));
+opt_ptrs.push_back(new AsianPutOption(fixing_dates, K));
+
+std::vector < double > ci;
+BlackScholesMCPricer * pricer;
+
+for (auto & opt_ptr: opt_ptrs) {
+  pricer = new BlackScholesMCPricer(opt_ptr, S0, r, sigma);
+  do {
+    pricer -> generate(10);
+    ci = pricer -> confidenceInterval();
+  } while (ci[1] - ci[0] > 1e-2 && pricer -> getNbPaths() < 10000);
+  std::cout << "nb samples: " << pricer -> getNbPaths() << std::endl;
+  std::cout << "price: " << ( * pricer)() << std::endl << std::endl;
+  delete pricer;
+  delete opt_ptr;
+}
 ```
 
-You can try the option evaluation with the CRR model by running `main.cpp`.
+### American options
 
-_Note: This version is incomplete and should be updated for asian and american options._
+- `AmericanCallOption`
+- `AmericanPutOption`
+
+```cpp
+double S0(95.), K(100.), T(0.5), r(0.02), sigma(0.2);
+std::vector<Option*> opt_ptrs;
+opt_ptrs.push_back(new AmericanCallOption(T, K));
+opt_ptrs.push_back(new AmericanPutOption(T, K));
+
+CRRPricer* pricer;
+
+for (auto& opt_ptr : opt_ptrs) {
+    pricer = new CRRPricer(opt_ptr, 150, S0, r, sigma);
+    pricer->compute();
+    std::cout << "price: " << (*pricer)() << std::endl << std::endl;
+    delete pricer;
+    delete opt_ptr;
+}
+```
